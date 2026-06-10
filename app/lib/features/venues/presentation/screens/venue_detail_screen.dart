@@ -152,13 +152,14 @@ class VenueDetailScreen extends ConsumerWidget {
                 child: ElevatedButton(
                   onPressed: () {
                     final slots = slotsAsync.valueOrNull ?? [];
-                    final slot = slots.firstWhere((s) => s.id == selectedSlotId);
+                    final matched = slots.where((s) => s.id == selectedSlotId).firstOrNull;
+                    if (matched == null) return;
                     context.push(Routes.bookingConfirm, extra: {
-                      'slotId': slot.id,
+                      'slotId': matched.id,
                       'venueName': venue?.name ?? '',
-                      'date': slot.date,
-                      'startTime': slot.startTime,
-                      'endTime': slot.endTime,
+                      'date': matched.date,
+                      'startTime': matched.startTime,
+                      'endTime': matched.endTime,
                     });
                   },
                   child: const Text('Book this slot'),
