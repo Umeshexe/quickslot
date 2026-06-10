@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:quickslot/core/router/app_router.dart';
 import 'package:quickslot/core/theme/app_theme.dart';
 import 'package:quickslot/features/venues/domain/entities/slot_entity.dart';
-import 'package:quickslot/features/venues/domain/entities/venue_entity.dart';
 import 'package:quickslot/features/venues/presentation/providers/slot_provider.dart';
 import 'package:quickslot/features/venues/presentation/providers/venue_provider.dart';
 
@@ -22,10 +21,7 @@ class VenueDetailScreen extends ConsumerWidget {
     final selectedSlotId = ref.watch(selectedSlotProvider);
     final theme = Theme.of(context);
 
-    final venue = venuesAsync.valueOrNull?.firstWhere(
-      (v) => v.id == venueId,
-      orElse: () => VenueEntity(id: venueId, name: '', sportType: '', location: '', priceInr: 0),
-    );
+    final venue = venuesAsync.valueOrNull?.where((v) => v.id == venueId).firstOrNull;
 
     return Scaffold(
       appBar: AppBar(

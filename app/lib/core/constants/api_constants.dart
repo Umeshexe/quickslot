@@ -4,7 +4,7 @@ class ApiConstants {
   // change this to the deployed URL before the demo
   static const String baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000', // 10.0.2.2 is localhost on android emulator
+    defaultValue: 'https://quickslot-production-6ea7.up.railway.app',
   );
 
   static const String venues = '/api/venues';
