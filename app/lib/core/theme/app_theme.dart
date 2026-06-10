@@ -11,7 +11,7 @@ class AppTheme {
   static const _textPrimary = Color(0xFFF0F4FF);
   static const _textSecondary = Color(0xFF8B95B0);
   static const _slotAvailable = Color(0xFF00C896);
-  static const _slotBooked = Color(0xFF3A3F52);
+  static const _slotBooked   = Color(0xFF252B3B); // solid dark surface
   static const _slotSelected = Color(0xFF4F8EF7);
   static const _errorRed = Color(0xFFFF5C5C);
 
@@ -109,7 +109,7 @@ class AppTheme {
     );
   }
 
-  // Slot colours (used in SlotGrid widget)
+  // Slot chip colors
   static Color slotColor(String status, {bool isSelected = false}) {
     if (isSelected) return _slotSelected;
     return status == 'available' ? _slotAvailable : _slotBooked;
@@ -117,6 +117,15 @@ class AppTheme {
 
   static Color slotTextColor(String status, {bool isSelected = false}) {
     if (isSelected) return Colors.white;
+    // available = solid green chip → black text for contrast
+    // booked   = dark chip → muted grey text
     return status == 'available' ? Colors.black : _textSecondary;
+  }
+
+  // border color for the chip (keeps the booked state recognisable)
+  static Color slotBorderColor(String status, {bool isSelected = false}) {
+    if (isSelected) return _slotSelected;
+    if (status == 'available') return Colors.transparent;
+    return const Color(0xFF3A3F52); // subtle grey border on booked
   }
 }

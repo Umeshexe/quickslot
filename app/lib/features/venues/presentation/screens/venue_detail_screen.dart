@@ -227,16 +227,17 @@ class _SlotChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final bgColor = AppTheme.slotColor(slot.status, isSelected: isSelected);
     final textColor = AppTheme.slotTextColor(slot.status, isSelected: isSelected);
+    final borderColor = AppTheme.slotBorderColor(slot.status, isSelected: isSelected);
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: isSelected ? bgColor.withValues(alpha: 0.25) : bgColor.withValues(alpha: 0.12),
+          color: bgColor,  // solid fill — no more invisible alpha
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? bgColor : bgColor.withValues(alpha: 0.4),
+            color: borderColor,
             width: isSelected ? 2 : 1,
           ),
         ),
