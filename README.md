@@ -1,30 +1,41 @@
 # QuickSlot
 
-Book sports slots — badminton courts, turf grounds. No double bookings, ever.
+Book sports slots — badminton courts, turf grounds. No double bookings.
 
 ---
 
-## Running locally
+## Setup
 
-### Backend
+### Prerequisites
+
+- Flutter 3.29+ with Dart 3.12+
+- Node.js 20+
+- A PostgreSQL database (Neon, Supabase, or local)
+
+### Option A — Docker
+
+```bash
+# from repo root
+docker compose up --build
+docker compose run --rm seed
+```
+
+That starts Postgres, applies the schema automatically, and serves the API on port 3000.
+
+### Option B — Manual
+
+**Backend:**
 
 ```bash
 cd server
 npm install
+cp .env.example .env        # set DATABASE_URL
+psql $DATABASE_URL -f db/schema.sql
+npx tsx db/seed.ts
+npm run dev                 # http://localhost:3000
 ```
 
-Make a `.env` file in `/server`:
-```
-DATABASE_URL=your_postgres_connection_string
-```
-
-Then:
-```bash
-npx ts-node db/seed.ts   # seeds venues + slots
-npm run dev              # starts on localhost:3000
-```
-
-### Flutter
+**Flutter app:**
 
 ```bash
 cd app
@@ -32,68 +43,194 @@ flutter pub get
 flutter run
 ```
 
-The app talks to `10.0.2.2:3000` by default — that's how Android emulator reaches your machine's localhost. If you're on a physical device, update `baseUrl` in `core/constants/api_constants.dart` to your machine's local IP.
+Physical device note: update `baseUrl` in `lib/core/constants/api_constants.dart` to your machine's local IP. The default `10.0.2.2:3000` works for Android emulator only.
 
 ---
 
-## How it's structured
+## Architecture
+
+### High-level
 
 ```
-app/lib/
-  core/         → theme, router, dio client, Result<T> error type
-  features/
-    auth/       → pick a user (hardcoded, as per spec)
-    venues/     → browse venues, see slots by date
-    bookings/   → confirm a booking, view and cancel your bookings
-
-server/
-  app/api/      → REST endpoints
-  db/           → schema + seed script
-  lib/          → postgres connection pool
+┌─────────────────────┐        HTTP/JSON        ┌──────────────────────────┐
+│   Flutter (Android) │ ─────────────────────── │   Next.js API (Node.js)  │
+│                     │                         │                          │
+│  Riverpod providers │                         │  /api/venues             │
+│  GoRouter           │                         │  /api/venues/[id]/slots  │
+│  Dio HTTP client    │                         │  /api/bookings           │
+└─────────────────────┘                         │  /api/bookings/[id]      │
+                                                │  /api/users/[id]/bookings│
+                                                └──────────┬───────────────┘
+                                                           │ pg driver
+                                                    ┌──────┴───────┐
+                                                    │  PostgreSQL  │
+                                                    │  venues      │
+                                                    │  slots       │
+                                                    │  bookings    │
+                                                    └──────────────┘
 ```
-
-Each feature folder follows the same pattern — `data` (API calls, models) → `domain` (entities, no Flutter) → `presentation` (screens, providers). The idea is the UI never touches raw JSON and the data layer never touches Flutter widgets.
-
-State management is Riverpod. `FutureProvider` for anything fetched from the API. `NotifierProvider` for the booking flow which has multiple states (idle → loading → success / slot taken / failed). GoRouter handles navigation.
 
 ---
 
-## The double booking problem
+## Low Level Design
 
-This was the main thing to get right. The naive approach — read the slot status, then write if available — breaks under concurrent requests because two users can both read "available" before either has written "booked".
+### Backend
 
-The fix is a `SELECT ... FOR UPDATE` inside a transaction:
+```mermaid
+erDiagram
+    venues {
+        int id PK
+        text name
+        text sport_type
+        text location
+        text image_url
+        int price_inr
+        timestamptz created_at
+    }
+    slots {
+        int id PK
+        int venue_id FK
+        date date
+        time start_time
+        time end_time
+        text status
+    }
+    bookings {
+        int id PK
+        text user_id
+        int slot_id FK
+        timestamptz booked_at
+    }
+
+    venues ||--o{ slots : "has"
+    slots ||--o| bookings : "booked via"
+```
+
+**API routes and their responsibilities:**
+
+| Method | Route | What it does |
+|--------|-------|-------------|
+| GET | `/api/venues` | List all venues |
+| GET | `/api/venues/[id]/slots?date=` | Slots for a venue on a given date |
+| POST | `/api/bookings` | Create a booking (uses SELECT FOR UPDATE transaction) |
+| DELETE | `/api/bookings/[id]` | Cancel a booking, frees the slot |
+| GET | `/api/users/[id]/bookings` | All bookings for a user |
+
+**The booking transaction (how double-bookings are prevented):**
 
 ```
-BEGIN
-SELECT id, status FROM slots WHERE id = $1 FOR UPDATE  ← locks this row
-  if status = 'booked' → ROLLBACK → return 409
-UPDATE slots SET status = 'booked'
-INSERT INTO bookings
-COMMIT
+POST /api/bookings
+  BEGIN
+    SELECT id, status FROM slots WHERE id = $slot_id FOR UPDATE
+    if status = 'booked'  →  ROLLBACK  →  409 Conflict
+    UPDATE slots SET status = 'booked' WHERE id = $slot_id
+    INSERT INTO bookings (user_id, slot_id) VALUES (...)
+  COMMIT
+  → 201 Created
 ```
 
-The row lock means if two requests hit the same slot at the same instant, one waits at the SELECT while the other finishes. The second one then reads the updated status and returns 409. On the Flutter side, a 409 response shows a specific "slot just taken" dialog and takes the user back to the grid to pick another time — not a generic error.
+The `FOR UPDATE` locks the row for the duration of the transaction. Two simultaneous requests for the same slot will queue at that line — whichever arrives second reads the already-updated status and returns 409. There is also a `UNIQUE(slot_id)` constraint on the bookings table as a hard database-level backstop.
 
 ---
 
-## Auth
+### Frontend
 
-Kept it light as the spec says — three hardcoded users, user ID sent as an `X-User-Id` header on every request. The backend trusts it without verification. For a real app you'd swap this out for JWT or session tokens, but that wasn't the point here.
+```mermaid
+flowchart TD
+    A[UserSelectScreen] -->|sets userId in auth provider| B[VenueListScreen]
+    B -->|taps venue card| C[VenueDetailScreen]
+    C -->|selects slot + confirms| D[BookingNotifier.book]
+    D -->|201| E[Success dialog → back to list]
+    D -->|409| F[Slot taken dialog → back to grid]
+    D -->|network error| G[Error snackbar]
+    B -->|taps My Bookings| H[MyBookingsScreen]
+    H -->|cancel| I[BookingRepository.cancelBooking]
+```
+
+**Flutter feature structure:**
+
+```
+lib/
+├── core/
+│   ├── constants/         API base URL
+│   ├── error/             Result<T> type  (Success / Failure)
+│   ├── network/           Dio client with X-User-Id interceptor
+│   ├── router/            GoRouter named routes
+│   └── theme/             colours, typography, card styles
+│
+└── features/
+    ├── auth/
+    │   ├── providers/     authProvider  (stores selected userId)
+    │   └── screens/       UserSelectScreen
+    │
+    ├── venues/
+    │   ├── data/
+    │   │   ├── models/    VenueModel, SlotModel  (fromJson)
+    │   │   └── repos/     VenueRepository, SlotRepository
+    │   ├── domain/
+    │   │   └── entities/  VenueEntity, SlotEntity  (plain Dart)
+    │   └── presentation/
+    │       ├── providers/ venueListProvider, slotListProvider (FutureProvider)
+    │       │              selectedDateProvider, selectedSlotProvider (StateProvider)
+    │       │              slotTimeFilterProvider  (StateProvider — Morning/Afternoon/Evening)
+    │       └── screens/   VenueListScreen, VenueDetailScreen
+    │
+    └── bookings/
+        ├── data/
+        │   ├── models/    BookingModel  (fromJson + local cache serialisation)
+        │   └── repos/     BookingRepository  (network + SharedPreferences cache)
+        ├── domain/
+        │   └── entities/  BookingEntity
+        └── presentation/
+            ├── providers/ BookingNotifier  (idle→loading→success|slotTaken|failed)
+            │              userBookingsProvider  (FutureProvider)
+            └── screens/   MyBookingsScreen
+```
+
+**State flow inside BookingNotifier:**
+
+```
+idle
+ └─ book() called
+     └─ loading
+         ├─ 201 OK        → success
+         ├─ 409 Conflict  → slotTaken
+         └─ other error   → failed  (with errorMessage)
+
+reset() → idle  (from any state)
+```
 
 ---
 
 ## What I cut
 
-**Real-time slot updates** — if user A books a slot while user B is looking at the same grid, user B won't see it flip to grey until they change the date and come back. To fix this properly you'd need a WebSocket or at least polling every few seconds. The concurrency protection still works — user B would get the "slot just taken" dialog if they try to book it — but the grid doesn't update live.
+Real-time slot updates — if one user books a slot while another is looking at the same grid, the second user's grid won't update until the 30-second poll fires or they change the date. The concurrency protection still works (they get the slot-taken dialog), but the grid is not instantaneous. Fixing this properly means a WebSocket or SSE channel on the server side.
 
-**Offline support** — My Bookings refetches every time you open the screen. Would add a local cache with Hive for that.
+Auth is three hardcoded users, as the spec asks. The user ID goes out as an `X-User-Id` header and the backend trusts it. In a real app this would be a signed JWT with middleware to verify it.
 
 ---
 
-## What I'd do with one more day
+## What I would do with one more day
 
-- Live slot updates via WebSocket so the grid reflects real-time availability without restarting
-- Hive cache for My Bookings so it works offline
-- One or two widget tests for the booking state machine
-- Docker Compose for the backend so setup is just `docker compose up`
+WebSocket live slot updates so the grid reflects changes from other users in real time, without polling. Hive instead of SharedPreferences for offline storage, so bookings can be queried and filtered locally without loading the full JSON blob. A wider test suite covering the slot grid widget — tapping available vs booked chips, confirming the booking flow renders the right dialogs.
+
+---
+
+## Running tests
+
+```bash
+cd app
+flutter test test/booking_notifier_test.dart
+```
+
+7 tests covering the BookingNotifier state machine — idle default, reset behaviour, state transitions, enum completeness.
+
+---
+
+## AI usage note
+
+I used Antigravity (Google DeepMind) as a coding pair throughout this project.
+
+It was useful for: scaffolding the clean-architecture folder structure, writing the SELECT FOR UPDATE transaction correctly on the first try, and iterating quickly on UI changes across many files at once.
+
+Where it went wrong — the Android navigation bar stayed black after every Flutter-side fix it attempted. It kept trying SystemChrome calls and AnnotatedRegion before I pointed it toward the native MainActivity.kt and styles.xml route, which is where the actual fix lives on Android 10+. An early version of the offline cache also only stored booking IDs instead of full entities, which would have made the offline view empty — I caught that during code review and had it corrected.

@@ -35,6 +35,7 @@ class VenueDetailScreen extends ConsumerWidget {
     final dateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
     final slotsAsync = ref.watch(slotListProvider((venueId: venueId, date: dateStr)));
     final selectedSlotId = ref.watch(selectedSlotProvider);
+    final activeFilter = ref.watch(slotTimeFilterProvider);
     final theme = Theme.of(context);
 
     final venue = venuesAsync.valueOrNull?.where((v) => v.id == venueId).firstOrNull;
@@ -180,7 +181,7 @@ class VenueDetailScreen extends ConsumerWidget {
 
                 const SizedBox(height: 24),
 
-                // Times section
+                // Times section header
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
@@ -195,11 +196,44 @@ class VenueDetailScreen extends ConsumerWidget {
                           _LegendDot(color: theme.colorScheme.primary, label: 'Selected'),
                           const SizedBox(width: 12),
                           _LegendDot(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                            color: const Color(0xFFEAEAE6),
                             label: 'Booked',
                           ),
                         ],
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Time-of-day filter chips
+                SizedBox(
+                  height: 36,
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _FilterChip(
+                        label: 'All',
+                        isSelected: activeFilter == null,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          ref.read(slotTimeFilterProvider.notifier).state = null;
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      for (final f in TimeFilter.values) ...[
+                        _FilterChip(
+                          label: f.label,
+                          isSelected: activeFilter == f,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            ref.read(slotTimeFilterProvider.notifier).state =
+                                activeFilter == f ? null : f;
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                     ],
                   ),
                 ),
@@ -218,13 +252,33 @@ class VenueDetailScreen extends ConsumerWidget {
                 child: Text('Could not load slots.', style: theme.textTheme.bodyMedium),
               ),
             ),
-            data: (slots) => slots.isEmpty
-                ? SliverFillRemaining(
+            data: (slots) {
+                final filtered = activeFilter == null
+                    ? slots
+                    : slots.where((s) => activeFilter.matches(s.startTime)).toList();
+                if (filtered.isEmpty) {
+                  return SliverFillRemaining(
                     child: Center(
-                      child: Text('No slots for this date.', style: theme.textTheme.bodyMedium),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            slots.isEmpty ? 'No slots for this date.' : 'No ${activeFilter?.label ?? ""} slots.',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          if (slots.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: () => ref.read(slotTimeFilterProvider.notifier).state = null,
+                              child: const Text('Show all times'),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  )
-                : SliverPadding(
+                  );
+                }
+                return SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
                     sliver: SliverGrid(
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -235,7 +289,7 @@ class VenueDetailScreen extends ConsumerWidget {
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, i) {
-                          final slot = slots[i];
+                          final slot = filtered[i];
                           final isSelected = selectedSlotId == slot.id;
                           return _SlotChip(
                             slot: slot,
@@ -249,10 +303,11 @@ class VenueDetailScreen extends ConsumerWidget {
                                 : null,
                           );
                         },
-                        childCount: slots.length,
+                        childCount: filtered.length,
                       ),
                     ),
-                  ),
+                  );
+              },
           ),
         ],
       ),
@@ -469,6 +524,44 @@ class _LegendDot extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({required this.label, required this.isSelected, required this.onTap});
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(50),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.dividerTheme.color!,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: isSelected
+                ? Colors.white
+                : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+      ),
     );
   }
 }
