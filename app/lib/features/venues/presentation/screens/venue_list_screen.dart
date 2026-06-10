@@ -170,9 +170,16 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-class _VenueCard extends StatelessWidget {
+class _VenueCard extends StatefulWidget {
   const _VenueCard({required this.venue});
   final VenueEntity venue;
+
+  @override
+  State<_VenueCard> createState() => _VenueCardState();
+}
+
+class _VenueCardState extends State<_VenueCard> {
+  bool _pressed = false;
 
   static const _sportGradients = {
     'badminton': [Color(0xFF00C896), Color(0xFF00A67C)],
@@ -181,139 +188,146 @@ class _VenueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradColors = _sportGradients[venue.sportType] ??
+    final gradColors = _sportGradients[widget.venue.sportType] ??
         [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)];
 
     return GestureDetector(
-      onTap: () => context.push('/venues/${venue.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E2230),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF2A2F3E)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // sport banner
-            Container(
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: gradColors.map((c) => c.withValues(alpha: 0.25)).toList(),
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: () => context.push('/venues/${widget.venue.id}'),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2230),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF2A2F3E)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // sport banner
+              Container(
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradColors.map((c) => c.withValues(alpha: 0.25)).toList(),
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 ),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    right: 20,
-                    bottom: 8,
-                    child: Text(
-                      venue.sportEmoji,
-                      style: const TextStyle(fontSize: 44),
-                    ),
-                  ),
-                  Positioned(
-                    left: 16,
-                    bottom: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: gradColors[0].withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: gradColors[0].withValues(alpha: 0.4),
-                        ),
-                      ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: 20,
+                      bottom: 8,
                       child: Text(
-                        venue.sportType.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: gradColors[0],
-                          letterSpacing: 0.8,
-                        ),
+                        widget.venue.sportEmoji,
+                        style: const TextStyle(fontSize: 44),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            // info section
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          venue.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFF0F4FF),
+                    Positioned(
+                      left: 16,
+                      bottom: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: gradColors[0].withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: gradColors[0].withValues(alpha: 0.4),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on_rounded,
-                              size: 12,
-                              color: Color(0xFF8B95B0),
+                        child: Text(
+                          widget.venue.sportType.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: gradColors[0],
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // info section
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.venue.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFF0F4FF),
                             ),
-                            const SizedBox(width: 3),
-                            Text(
-                              venue.location,
-                              style: const TextStyle(
-                                fontSize: 12,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_rounded,
+                                size: 12,
                                 color: Color(0xFF8B95B0),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: gradColors),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: gradColors[0].withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          '₹${venue.priceInr}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.black,
+                              const SizedBox(width: 3),
+                              Text(
+                                widget.venue.location,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF8B95B0),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const Text(
-                          'per hr',
-                          style: TextStyle(fontSize: 9, color: Colors.black54, fontWeight: FontWeight.w600),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: gradColors),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: gradColors[0].withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            '₹${widget.venue.priceInr}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const Text(
+                            'per hr',
+                            style: TextStyle(fontSize: 9, color: Colors.black54, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

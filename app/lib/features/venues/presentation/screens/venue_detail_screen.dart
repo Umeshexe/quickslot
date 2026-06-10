@@ -218,83 +218,111 @@ class VenueDetailScreen extends ConsumerWidget {
   }
 }
 
-class _DateChip extends StatelessWidget {
+class _DateChip extends StatefulWidget {
   const _DateChip({required this.date, required this.isSelected, required this.onTap});
   final DateTime date;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
+  State<_DateChip> createState() => _DateChipState();
+}
+
+class _DateChipState extends State<_DateChip> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? theme.colorScheme.primary
-              : theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              DateFormat('EEE').format(date),
-              style: TextStyle(
-                fontSize: 11,
-                color: isSelected ? Colors.black : theme.textTheme.bodyMedium?.color,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? theme.colorScheme.primary
+                : theme.cardTheme.color,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                DateFormat('EEE').format(widget.date),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: widget.isSelected ? Colors.black : theme.textTheme.bodyMedium?.color,
+                ),
               ),
-            ),
-            Text(
-              DateFormat('d').format(date),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: isSelected ? Colors.black : theme.textTheme.bodyLarge?.color,
+              Text(
+                DateFormat('d').format(widget.date),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: widget.isSelected ? Colors.black : theme.textTheme.bodyLarge?.color,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _SlotChip extends StatelessWidget {
+class _SlotChip extends StatefulWidget {
   const _SlotChip({required this.slot, required this.isSelected, this.onTap});
   final SlotEntity slot;
   final bool isSelected;
   final VoidCallback? onTap;
 
   @override
+  State<_SlotChip> createState() => _SlotChipState();
+}
+
+class _SlotChipState extends State<_SlotChip> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final bgColor = AppTheme.slotColor(slot.status, isSelected: isSelected);
-    final textColor = AppTheme.slotTextColor(slot.status, isSelected: isSelected);
-    final borderColor = AppTheme.slotBorderColor(slot.status, isSelected: isSelected);
+    final bgColor = AppTheme.slotColor(widget.slot.status, isSelected: widget.isSelected);
+    final textColor = AppTheme.slotTextColor(widget.slot.status, isSelected: widget.isSelected);
+    final borderColor = AppTheme.slotBorderColor(widget.slot.status, isSelected: widget.isSelected);
 
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: bgColor,  // solid fill — no more invisible alpha
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: borderColor,
-            width: isSelected ? 2 : 1,
+      onTapDown: widget.onTap != null ? (_) => setState(() => _pressed = true) : null,
+      onTapUp: widget.onTap != null ? (_) => setState(() => _pressed = false) : null,
+      onTapCancel: widget.onTap != null ? () => setState(() => _pressed = false) : null,
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: borderColor,
+              width: widget.isSelected ? 2 : 1,
+            ),
           ),
-        ),
-        child: Center(
-          child: Text(
-            slot.startTime.substring(0, 5),
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: textColor,
+          child: Center(
+            child: Text(
+              widget.slot.startTime.substring(0, 5),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
             ),
           ),
         ),

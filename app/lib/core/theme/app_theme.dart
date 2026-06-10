@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   AppTheme._();
@@ -30,7 +31,6 @@ class AppTheme {
         onSurface: _textPrimary,
         onError: Colors.white,
       ),
-      fontFamily: 'Inter',
       appBarTheme: const AppBarTheme(
         backgroundColor: _bgDark,
         foregroundColor: _textPrimary,
@@ -87,24 +87,26 @@ class AppTheme {
         color: Color(0xFF2A2F3E),
         thickness: 1,
       ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
-          color: _textPrimary, fontSize: 28,
-          fontWeight: FontWeight.w800, letterSpacing: -0.5,
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(
+        const TextTheme(
+          headlineLarge: TextStyle(
+            color: _textPrimary, fontSize: 28,
+            fontWeight: FontWeight.w800, letterSpacing: -1.0,
+          ),
+          headlineMedium: TextStyle(
+            color: _textPrimary, fontSize: 22,
+            fontWeight: FontWeight.w700, letterSpacing: -0.5,
+          ),
+          titleLarge: TextStyle(
+            color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3,
+          ),
+          titleMedium: TextStyle(
+            color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.2,
+          ),
+          bodyLarge: TextStyle(color: _textPrimary, fontSize: 15),
+          bodyMedium: TextStyle(color: _textSecondary, fontSize: 14),
+          labelSmall: TextStyle(color: _textSecondary, fontSize: 12),
         ),
-        headlineMedium: TextStyle(
-          color: _textPrimary, fontSize: 22,
-          fontWeight: FontWeight.w700, letterSpacing: -0.3,
-        ),
-        titleLarge: TextStyle(
-          color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w700,
-        ),
-        titleMedium: TextStyle(
-          color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w600,
-        ),
-        bodyLarge: TextStyle(color: _textPrimary, fontSize: 15),
-        bodyMedium: TextStyle(color: _textSecondary, fontSize: 14),
-        labelSmall: TextStyle(color: _textSecondary, fontSize: 12),
       ),
     );
   }
