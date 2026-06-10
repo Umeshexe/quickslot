@@ -13,56 +13,30 @@ class VenueListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final venuesAsync = ref.watch(venueListProvider);
     final userId = ref.watch(authProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('QuickSlot'),
-        actions: [
-          // my bookings button
-          IconButton(
-            icon: const Icon(Icons.bookmark_rounded),
-            onPressed: () => context.push(Routes.myBookings),
-          ),
-          // logout
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () {
-              ref.read(authProvider.notifier).logout();
-              context.go(Routes.userSelect);
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Text(
-              'Hey ${_firstName(userId)} 👋',
-              style: theme.textTheme.headlineMedium,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Text('Pick a venue to book a slot',
-                style: theme.textTheme.bodyMedium),
-          ),
-          Expanded(
-            child: venuesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => _ErrorView(
-                message: e.toString(),
-                onRetry: () => ref.invalidate(venueListProvider),
+      body: CustomScrollView(
+        slivers: [
+          // gradient header
+          SliverToBoxAdapter(child: _Header(userId: userId, ref: ref)),
+          // content
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            sliver: venuesAsync.when(
+              loading: () => const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => SliverFillRemaining(
+                child: _ErrorView(
+                  onRetry: () => ref.invalidate(venueListProvider),
+                ),
               ),
               data: (venues) => venues.isEmpty
-                  ? const _EmptyView()
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  ? const SliverFillRemaining(child: _EmptyView())
+                  : SliverList.separated(
                       itemCount: venues.length,
-                      separatorBuilder: (context, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, i) => _VenueCard(venue: venues[i]),
+                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      itemBuilder: (_, i) => _VenueCard(venue: venues[i]),
                     ),
             ),
           ),
@@ -71,13 +45,128 @@ class VenueListScreen extends ConsumerWidget {
     );
   }
 
-  String _firstName(String? userId) {
-    switch (userId) {
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.userId, required this.ref});
+  final String? userId;
+  final WidgetRef ref;
+
+  String _firstName(String? id) {
+    switch (id) {
       case 'user-001': return 'Arjun';
       case 'user-002': return 'Priya';
       case 'user-003': return 'Rahul';
       default: return 'there';
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF111520), Color(0xFF0D0F14)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // logo mark
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF00C896), Color(0xFF00A67C)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.bolt_rounded, color: Colors.black, size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'QuickSlot',
+                    style: TextStyle(
+                      color: Color(0xFFF0F4FF),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  // bookings icon
+                  _ActionButton(
+                    icon: Icons.bookmark_rounded,
+                    onTap: () => context.push(Routes.myBookings),
+                    tooltip: 'My Bookings',
+                  ),
+                  const SizedBox(width: 8),
+                  _ActionButton(
+                    icon: Icons.logout_rounded,
+                    onTap: () {
+                      ref.read(authProvider.notifier).logout();
+                      context.go(Routes.userSelect);
+                    },
+                    tooltip: 'Switch user',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              Text(
+                'Hey ${_firstName(userId)} 👋',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFF0F4FF),
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Pick a venue and book your slot',
+                style: TextStyle(fontSize: 14, color: Color(0xFF8B95B0)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.icon, required this.onTap, required this.tooltip});
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2230),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF2A2F3E)),
+          ),
+          child: Icon(icon, size: 18, color: const Color(0xFF8B95B0)),
+        ),
+      ),
+    );
   }
 }
 
@@ -85,55 +174,144 @@ class _VenueCard extends StatelessWidget {
   const _VenueCard({required this.venue});
   final VenueEntity venue;
 
-  @override
-  Widget build(BuildContext context, ) {
-    final theme = Theme.of(context);
+  static const _sportGradients = {
+    'badminton': [Color(0xFF00C896), Color(0xFF00A67C)],
+    'turf': [Color(0xFF4F8EF7), Color(0xFF2E6FE0)],
+  };
 
-    return InkWell(
+  @override
+  Widget build(BuildContext context) {
+    final gradColors = _sportGradients[venue.sportType] ??
+        [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)];
+
+    return GestureDetector(
       onTap: () => context.push('/venues/${venue.id}'),
-      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: theme.cardTheme.color,
-          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFF1E2230),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF2A2F3E)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // sport icon
+            // sport banner
             Container(
-              width: 48,
-              height: 48,
+              height: 80,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: gradColors.map((c) => c.withValues(alpha: 0.25)).toList(),
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              child: Center(
-                child: Text(venue.sportEmoji, style: const TextStyle(fontSize: 22)),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Text(venue.name, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(venue.location, style: theme.textTheme.bodyMedium),
+                  Positioned(
+                    right: 20,
+                    bottom: 8,
+                    child: Text(
+                      venue.sportEmoji,
+                      style: const TextStyle(fontSize: 44),
+                    ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    bottom: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: gradColors[0].withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: gradColors[0].withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Text(
+                        venue.sportType.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: gradColors[0],
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '₹${venue.priceInr}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.primary,
+            // info section
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          venue.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFF0F4FF),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_rounded,
+                              size: 12,
+                              color: Color(0xFF8B95B0),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              venue.location,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF8B95B0),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Text('/hr', style: theme.textTheme.labelSmall),
-              ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: gradColors),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: gradColors[0].withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          '₹${venue.priceInr}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const Text(
+                          'per hr',
+                          style: TextStyle(fontSize: 9, color: Colors.black54, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -143,8 +321,7 @@ class _VenueCard extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-  final String message;
+  const _ErrorView({required this.onRetry});
   final VoidCallback onRetry;
 
   @override
@@ -155,11 +332,22 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.grey),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E2230),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF2A2F3E)),
+              ),
+              child: const Icon(Icons.wifi_off_rounded, size: 32, color: Color(0xFF8B95B0)),
+            ),
             const SizedBox(height: 16),
-            Text('Could not load venues', style: Theme.of(context).textTheme.titleMedium),
+            const Text('Could not load venues',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFF0F4FF))),
             const SizedBox(height: 8),
-            Text(message, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+            const Text('Check your connection and try again',
+                style: TextStyle(fontSize: 13, color: Color(0xFF8B95B0)), textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
           ],
@@ -178,9 +366,10 @@ class _EmptyView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.search_off_rounded, size: 48, color: Colors.grey),
+          const Text('🏟️', style: TextStyle(fontSize: 48)),
           const SizedBox(height: 16),
-          Text('No venues found', style: Theme.of(context).textTheme.titleMedium),
+          const Text('No venues found',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFF0F4FF))),
         ],
       ),
     );

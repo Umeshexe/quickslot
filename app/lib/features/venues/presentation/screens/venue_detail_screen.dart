@@ -34,21 +34,68 @@ class VenueDetailScreen extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // venue info header
+          // venue info banner
           if (venue != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            Container(
+              margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF00C896).withValues(alpha: 0.12),
+                    const Color(0xFF4F8EF7).withValues(alpha: 0.06),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF00C896).withValues(alpha: 0.2),
+                ),
+              ),
               child: Row(
                 children: [
-                  Icon(Icons.location_on_rounded,
-                      size: 14, color: theme.textTheme.bodyMedium?.color),
-                  const SizedBox(width: 4),
-                  Text(venue.location, style: theme.textTheme.bodyMedium),
-                  const Spacer(),
-                  Text(
-                    '₹${venue.priceInr}/hr',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(color: theme.colorScheme.primary),
+                  // big emoji
+                  Text(venue.sportEmoji, style: const TextStyle(fontSize: 36)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_rounded,
+                              size: 12,
+                              color: Color(0xFF8B95B0),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              venue.location,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF8B95B0),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00C896),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '₹${venue.priceInr}/hr',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black,
+                      ),
+                    ),
                   ),
                 ],
               ),

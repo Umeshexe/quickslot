@@ -26,9 +26,7 @@ class BookingConfirmScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bookingState = ref.watch(bookingNotifierProvider);
     final userId = ref.watch(authProvider) ?? '';
-    final theme = Theme.of(context);
 
-    // listen for state changes to show feedback
     ref.listen(bookingNotifierProvider, (prev, next) {
       if (next.status == BookingStatus.success) {
         _showSuccessAndPop(context, ref, userId);
@@ -38,59 +36,125 @@ class BookingConfirmScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage ?? 'Booking failed'),
-            backgroundColor: theme.colorScheme.error,
+            backgroundColor: const Color(0xFFFF5C5C),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Confirm Booking')),
+      appBar: AppBar(
+        title: const Text('Confirm Booking'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => context.pop(),
+        ),
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 16),
-            // booking summary card
+            const SizedBox(height: 8),
+            // summary card
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: theme.cardTheme.color,
-                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFF1E2230),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF2A2F3E)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Booking Summary', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 20),
-                  _Row(label: 'Venue', value: venueName),
-                  const SizedBox(height: 12),
-                  _Row(label: 'Date', value: date),
-                  const SizedBox(height: 12),
-                  _Row(label: 'Time', value: '${startTime.substring(0, 5)} – ${endTime.substring(0, 5)}'),
+                  // card header strip
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF00C896), Color(0xFF00A67C)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.sports_rounded, color: Colors.black, size: 22),
+                        const SizedBox(width: 10),
+                        Text(
+                          venueName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // detail rows
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _DetailRow(
+                          icon: Icons.calendar_today_rounded,
+                          label: 'Date',
+                          value: date,
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(color: Color(0xFF2A2F3E), height: 1),
+                        ),
+                        _DetailRow(
+                          icon: Icons.schedule_rounded,
+                          label: 'Time',
+                          value: '${startTime.substring(0, 5)} – ${endTime.substring(0, 5)}',
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(color: Color(0xFF2A2F3E), height: 1),
+                        ),
+                        _DetailRow(
+                          icon: Icons.person_rounded,
+                          label: 'Booked for',
+                          value: userId,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
 
             const SizedBox(height: 16),
+
+            // info note
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                color: const Color(0xFF00C896).withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF00C896).withValues(alpha: 0.2),
+                ),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  Icon(Icons.info_outline_rounded,
-                      size: 16, color: theme.colorScheme.primary),
-                  const SizedBox(width: 8),
+                  Icon(Icons.lock_rounded, size: 15, color: Color(0xFF00C896)),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Slot is held until confirmed. Tap Book to reserve it.',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: theme.colorScheme.primary),
+                      'Slot is reserved just for you. Tap "Book" to confirm.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF00C896),
+                        height: 1.4,
+                      ),
                     ),
                   ),
                 ],
@@ -99,29 +163,41 @@ class BookingConfirmScreen extends ConsumerWidget {
 
             const Spacer(),
 
-            ElevatedButton(
-              onPressed: bookingState.status == BookingStatus.loading
-                  ? null
-                  : () => ref
-                      .read(bookingNotifierProvider.notifier)
-                      .book(userId, slotId),
-              child: bookingState.status == BookingStatus.loading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.black),
-                    )
-                  : const Text('Confirm Booking'),
+            // book CTA
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: bookingState.status == BookingStatus.loading
+                    ? null
+                    : () => ref.read(bookingNotifierProvider.notifier).book(userId, slotId),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00C896),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: bookingState.status == BookingStatus.loading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black),
+                      )
+                    : const Text(
+                        'Book this slot',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+              ),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: TextButton(
                 onPressed: () => context.pop(),
-                child: const Text('Cancel'),
+                child: const Text('Go back', style: TextStyle(color: Color(0xFF8B95B0))),
               ),
             ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -131,44 +207,82 @@ class BookingConfirmScreen extends ConsumerWidget {
   void _showSuccessAndPop(BuildContext context, WidgetRef ref, String userId) {
     ref.read(bookingNotifierProvider.notifier).reset();
     ref.read(selectedSlotProvider.notifier).state = null;
-    // force My Bookings to refetch so the new booking shows up immediately
     ref.invalidate(userBookingsProvider(userId));
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (_) => Dialog(
         backgroundColor: const Color(0xFF1E2230),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            const Icon(Icons.check_circle_rounded, color: Color(0xFF00C896), size: 56),
-            const SizedBox(height: 16),
-            const Text('Booking Confirmed!',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-            const SizedBox(height: 8),
-            Text('$venueName\n$date · ${startTime.substring(0, 5)}',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // success ring
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C896).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF00C896).withValues(alpha: 0.4),
+                    width: 2,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Color(0xFF00C896),
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Booking Confirmed!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFF0F4FF),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$venueName\n$date · ${startTime.substring(0, 5)}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF8B95B0))),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // go straight to My Bookings so user sees their new booking
-                context.go(Routes.myBookings);
-              },
-              child: const Text('View My Bookings'),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                context.go(Routes.venueList);
-              },
-              child: const Text('Back to venues'),
-            ),
-          ],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF8B95B0),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.go(Routes.myBookings);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C896),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('View My Bookings', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.go(Routes.venueList);
+                },
+                child: const Text('Back to venues', style: TextStyle(color: Color(0xFF8B95B0))),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -178,40 +292,88 @@ class BookingConfirmScreen extends ConsumerWidget {
     ref.read(bookingNotifierProvider.notifier).reset();
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => Dialog(
         backgroundColor: const Color(0xFF1E2230),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Slot just taken'),
-        content: const Text(
-          'Someone else booked this slot a moment ago. Please go back and pick another time.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.pop(); // go back to slot grid
-            },
-            child: const Text('Pick another slot'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF5C5C).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.timer_off_rounded, color: Color(0xFFFF5C5C), size: 32),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Slot just taken!',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFFF0F4FF)),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Someone booked this slot a moment ago.\nPlease pick another time.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Color(0xFF8B95B0), height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF252B3B),
+                    foregroundColor: const Color(0xFFF0F4FF),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Pick another slot', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row({required this.label, required this.value});
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.icon, required this.label, required this.value});
+  final IconData icon;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: theme.textTheme.bodyMedium),
-        Text(value, style: theme.textTheme.titleMedium),
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: const Color(0xFF252B3B),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 18, color: const Color(0xFF8B95B0)),
+        ),
+        const SizedBox(width: 12),
+        Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF8B95B0))),
+        const Spacer(),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFFF0F4FF),
+          ),
+        ),
       ],
     );
   }
