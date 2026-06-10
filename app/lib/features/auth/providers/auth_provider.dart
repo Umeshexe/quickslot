@@ -24,7 +24,8 @@ class AuthNotifier extends Notifier<String?> {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_key);
-    if (saved != null) state = saved;
+    // only restore if the user hasn't already made an explicit selection
+    if (saved != null && state == null) state = saved;
   }
 
   Future<void> _saveToPrefs(String userId) async {

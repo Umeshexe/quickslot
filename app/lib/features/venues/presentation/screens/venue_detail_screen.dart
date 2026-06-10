@@ -79,7 +79,15 @@ class VenueDetailScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Text('Available slots', style: theme.textTheme.titleMedium),
+            child: Row(
+              children: [
+                Text('Time slots', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                _LegendDot(color: AppTheme.slotColor('available'), label: 'Free'),
+                const SizedBox(width: 12),
+                _LegendDot(color: AppTheme.slotColor('booked'), label: 'Taken'),
+              ],
+            ),
           ),
 
           // slot grid
@@ -242,6 +250,28 @@ class _SlotChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label,
+            style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodyMedium?.color)),
+      ],
     );
   }
 }

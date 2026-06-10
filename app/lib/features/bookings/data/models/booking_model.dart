@@ -22,7 +22,7 @@ class BookingModel extends BookingEntity {
       venueName: json['venue_name'] as String,
       sportType: json['sport_type'] as String,
       location: json['location'] as String,
-      date: json['date'] as String,
+      date: (json['date'] as String).substring(0, 10),
       startTime: json['start_time'] as String,
       endTime: json['end_time'] as String,
       bookedAt: json['booked_at'] as String,

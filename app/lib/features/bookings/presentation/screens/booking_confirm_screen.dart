@@ -31,7 +31,7 @@ class BookingConfirmScreen extends ConsumerWidget {
     // listen for state changes to show feedback
     ref.listen(bookingNotifierProvider, (prev, next) {
       if (next.status == BookingStatus.success) {
-        _showSuccessAndPop(context, ref);
+        _showSuccessAndPop(context, ref, userId);
       } else if (next.status == BookingStatus.slotTaken) {
         _showSlotTakenDialog(context, ref);
       } else if (next.status == BookingStatus.failed) {
@@ -128,9 +128,11 @@ class BookingConfirmScreen extends ConsumerWidget {
     );
   }
 
-  void _showSuccessAndPop(BuildContext context, WidgetRef ref) {
+  void _showSuccessAndPop(BuildContext context, WidgetRef ref, String userId) {
     ref.read(bookingNotifierProvider.notifier).reset();
     ref.read(selectedSlotProvider.notifier).state = null;
+    // force My Bookings to refetch so the new booking shows up immediately
+    ref.invalidate(userBookingsProvider(userId));
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -153,9 +155,18 @@ class BookingConfirmScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
+                // go straight to My Bookings so user sees their new booking
+                context.go(Routes.myBookings);
+              },
+              child: const Text('View My Bookings'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
                 context.go(Routes.venueList);
               },
-              child: const Text('Done'),
+              child: const Text('Back to venues'),
             ),
           ],
         ),
