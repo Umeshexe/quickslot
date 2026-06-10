@@ -4,6 +4,14 @@ Book sports slots — badminton courts, turf grounds. No double bookings.
 
 ---
 
+## Deployed stack
+
+The Next.js API is deployed on Railway. The database is Neon — serverless Postgres running on AWS in the Singapore region. The Flutter app on the phone talks directly to the Railway URL, which connects to Neon over a standard Postgres connection string. Both are always live, so the app works without running anything locally.
+
+The `DATABASE_URL` is set as an environment variable in Railway's dashboard and is never committed to the repo. A `.env.example` is included for anyone who wants to run the backend locally instead.
+
+---
+
 ## Setup
 
 ### Prerequisites
