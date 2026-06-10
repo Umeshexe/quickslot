@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:quickslot/core/router/app_router.dart';
-import 'package:quickslot/core/theme/app_theme.dart';
 import 'package:quickslot/features/venues/domain/entities/slot_entity.dart';
+import 'package:quickslot/features/venues/domain/entities/venue_entity.dart';
 import 'package:quickslot/features/venues/presentation/providers/slot_provider.dart';
 import 'package:quickslot/features/venues/presentation/providers/venue_provider.dart';
+
+// Same sport-specific images as the home screen
+const _badmintonImages = [
+  'https://images.unsplash.com/photo-1637666062717-1c6bcfa4a4df?w=800&q=75&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&q=75&auto=format&fit=crop',
+];
+const _turfImages = [
+  'https://images.unsplash.com/photo-1431324155629-1a6ddc1dec79?w=800&q=75&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&q=75&auto=format&fit=crop',
+];
+
+String _imageFor(VenueEntity v) {
+  final list = v.sportType == 'turf' ? _turfImages : _badmintonImages;
+  return list[v.id % list.length];
+}
 
 class VenueDetailScreen extends ConsumerWidget {
   const VenueDetailScreen({super.key, required this.venueId});
@@ -22,59 +38,105 @@ class VenueDetailScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     final venue = venuesAsync.valueOrNull?.where((v) => v.id == venueId).firstOrNull;
+    // Fallback is sport-neutral; once venue loads it uses the correct sport image
+    final imageUrl = venue != null
+        ? _imageFor(venue)
+        : _turfImages[venueId % _turfImages.length];  // reasonable default while loading
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(venue?.name ?? 'Venue'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // venue info banner
-          if (venue != null)
-            Container(
-              margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF00C896).withValues(alpha: 0.12),
-                    const Color(0xFF4F8EF7).withValues(alpha: 0.06),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      body: CustomScrollView(
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          // Hero photo app bar
+          SliverAppBar(
+            expandedHeight: 260.0,
+            pinned: true,
+            backgroundColor: theme.scaffoldBackgroundColor,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 1,
+            flexibleSpace: FlexibleSpaceBar(
+              background: _HeroImage(
+                imageUrl: imageUrl,
+                sportType: venue?.sportType ?? 'turf',
+              ),
+              collapseMode: CollapseMode.pin,
+            ),
+            leading: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  shape: BoxShape.circle,
                 ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF00C896).withValues(alpha: 0.2),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  color: Colors.black87,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    context.pop();
+                  },
                 ),
               ),
-              child: Row(
-                children: [
-                  // big emoji
-                  Text(venue.sportEmoji, style: const TextStyle(fontSize: 36)),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+            ),
+          ),
+
+          // Content
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Venue header
+                if (venue != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                venue.name,
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(Icons.location_on_outlined, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                                  const SizedBox(width: 3),
+                                  Expanded(
+                                    child: Text(
+                                      venue.location,
+                                      style: theme.textTheme.bodyMedium,
+                                      maxLines: 2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Icon(
-                              Icons.location_on_rounded,
-                              size: 12,
-                              color: Color(0xFF8B95B0),
-                            ),
-                            const SizedBox(width: 3),
                             Text(
-                              venue.location,
-                              style: const TextStyle(
+                              '₹${venue.priceInr}',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            Text(
+                              '/ hr',
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF8B95B0),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
                               ),
                             ),
                           ],
@@ -82,122 +144,131 @@ class VenueDetailScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00C896),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '₹${venue.priceInr}/hr',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1),
                 ],
-              ),
-            ),
 
-          // date picker row
-          SizedBox(
-            height: 72,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: 7,
-              itemBuilder: (context, i) {
-                final date = DateTime.now().add(Duration(days: i));
-                final isSelected = DateFormat('yyyy-MM-dd').format(date) == dateStr;
-                return _DateChip(
-                  date: date,
-                  isSelected: isSelected,
-                  onTap: () {
-                    ref.read(selectedDateProvider.notifier).state = date;
-                    ref.read(selectedSlotProvider.notifier).state = null;
-                  },
-                );
-              },
-            ),
-          ),
+                // Date picker section
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                  child: Text(
+                    'Select Date',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(
+                  height: 72,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 7,
+                    itemBuilder: (context, i) {
+                      final date = DateTime.now().add(Duration(days: i));
+                      final isSelected = DateFormat('yyyy-MM-dd').format(date) == dateStr;
+                      return _DateChip(
+                        date: date,
+                        isSelected: isSelected,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          ref.read(selectedDateProvider.notifier).state = date;
+                          ref.read(selectedSlotProvider.notifier).state = null;
+                        },
+                      );
+                    },
+                  ),
+                ),
 
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Row(
-              children: [
-                Text('Time slots', style: theme.textTheme.titleMedium),
-                const Spacer(),
-                _LegendDot(color: AppTheme.slotColor('available'), label: 'Free'),
-                const SizedBox(width: 12),
-                _LegendDot(color: AppTheme.slotColor('booked'), label: 'Taken'),
+                const SizedBox(height: 24),
+
+                // Times section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Available Times',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      Row(
+                        children: [
+                          _LegendDot(color: theme.colorScheme.primary, label: 'Selected'),
+                          const SizedBox(width: 12),
+                          _LegendDot(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                            label: 'Booked',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
               ],
             ),
           ),
 
-          // slot grid
-          Expanded(
-            child: slotsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline_rounded, size: 40, color: Colors.grey),
-                    const SizedBox(height: 12),
-                    Text('Could not load slots', style: theme.textTheme.bodyMedium),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref.invalidate(slotListProvider),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
+          // Slots grid
+          slotsAsync.when(
+            loading: () => const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => SliverFillRemaining(
+              child: Center(
+                child: Text('Could not load slots.', style: theme.textTheme.bodyMedium),
               ),
-              data: (slots) => slots.isEmpty
-                  ? Center(
-                      child: Text('No slots for this date',
-                          style: theme.textTheme.bodyMedium),
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
+            ),
+            data: (slots) => slots.isEmpty
+                ? SliverFillRemaining(
+                    child: Center(
+                      child: Text('No slots for this date.', style: theme.textTheme.bodyMedium),
+                    ),
+                  )
+                : SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                    sliver: SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         crossAxisSpacing: 10,
                         mainAxisSpacing: 10,
-                        childAspectRatio: 2.2,
+                        childAspectRatio: 2.6,
                       ),
-                      itemCount: slots.length,
-                      itemBuilder: (context, i) {
-                        final slot = slots[i];
-                        final isSelected = selectedSlotId == slot.id;
-                        return _SlotChip(
-                          slot: slot,
-                          isSelected: isSelected,
-                          onTap: slot.isAvailable
-                              ? () {
-                                  ref.read(selectedSlotProvider.notifier).state =
-                                      isSelected ? null : slot.id;
-                                }
-                              : null,
-                        );
-                      },
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) {
+                          final slot = slots[i];
+                          final isSelected = selectedSlotId == slot.id;
+                          return _SlotChip(
+                            slot: slot,
+                            isSelected: isSelected,
+                            onTap: slot.isAvailable
+                                ? () {
+                                    HapticFeedback.selectionClick();
+                                    ref.read(selectedSlotProvider.notifier).state =
+                                        isSelected ? null : slot.id;
+                                  }
+                                : null,
+                          );
+                        },
+                        childCount: slots.length,
+                      ),
                     ),
-            ),
+                  ),
           ),
         ],
       ),
 
-      // book button — only shows when a slot is selected
+      // Sticky bottom CTA
       bottomNavigationBar: selectedSlotId != null
           ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                decoration: BoxDecoration(
+                  color: theme.scaffoldBackgroundColor,
+                  border: Border(top: BorderSide(color: theme.dividerTheme.color!)),
+                ),
                 child: ElevatedButton(
                   onPressed: () {
+                    HapticFeedback.mediumImpact();
                     final slots = slotsAsync.valueOrNull ?? [];
                     final matched = slots.where((s) => s.id == selectedSlotId).firstOrNull;
                     if (matched == null) return;
@@ -209,7 +280,7 @@ class VenueDetailScreen extends ConsumerWidget {
                       'endTime': matched.endTime,
                     });
                   },
-                  child: const Text('Book this slot'),
+                  child: const Text('Continue to Booking'),
                 ),
               ),
             )
@@ -218,111 +289,155 @@ class VenueDetailScreen extends ConsumerWidget {
   }
 }
 
-class _DateChip extends StatefulWidget {
+class _HeroImage extends StatelessWidget {
+  const _HeroImage({required this.imageUrl, required this.sportType});
+  final String imageUrl;
+  final String sportType;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallbackBg = sportType == 'turf'
+        ? const Color(0xFFCEE5C8)   // grass green
+        : const Color(0xFFBFD9E8);  // court blue
+    final fallbackEmoji = sportType == 'turf' ? '⚽' : '🏸';
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(color: const Color(0xFFEEEEEB));
+          },
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: fallbackBg,
+            child: Center(
+              child: Text(fallbackEmoji, style: const TextStyle(fontSize: 72)),
+            ),
+          ),
+        ),
+        // gradient only at very top for back button readability, very subtle
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.center,
+              colors: [Colors.black.withValues(alpha: 0.3), Colors.transparent],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DateChip extends StatelessWidget {
   const _DateChip({required this.date, required this.isSelected, required this.onTap});
   final DateTime date;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
-  State<_DateChip> createState() => _DateChipState();
-}
-
-class _DateChipState extends State<_DateChip> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isToday = DateFormat('yyyy-MM-dd').format(date) ==
+        DateFormat('yyyy-MM-dd').format(DateTime.now());
+
     return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: widget.isSelected
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
                 ? theme.colorScheme.primary
-                : theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(12),
+                : theme.dividerTheme.color!,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                DateFormat('EEE').format(widget.date),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: widget.isSelected ? Colors.black : theme.textTheme.bodyMedium?.color,
-                ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isToday ? 'TODAY' : DateFormat('EEE').format(date).toUpperCase(),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: isSelected
+                    ? Colors.white
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.45),
               ),
-              Text(
-                DateFormat('d').format(widget.date),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: widget.isSelected ? Colors.black : theme.textTheme.bodyLarge?.color,
-                ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              DateFormat('d').format(date),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? Colors.white : theme.colorScheme.onSurface,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _SlotChip extends StatefulWidget {
+class _SlotChip extends StatelessWidget {
   const _SlotChip({required this.slot, required this.isSelected, this.onTap});
   final SlotEntity slot;
   final bool isSelected;
   final VoidCallback? onTap;
 
   @override
-  State<_SlotChip> createState() => _SlotChipState();
-}
-
-class _SlotChipState extends State<_SlotChip> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final bgColor = AppTheme.slotColor(widget.slot.status, isSelected: widget.isSelected);
-    final textColor = AppTheme.slotTextColor(widget.slot.status, isSelected: widget.isSelected);
-    final borderColor = AppTheme.slotBorderColor(widget.slot.status, isSelected: widget.isSelected);
+    final theme = Theme.of(context);
+    final isAvailable = slot.isAvailable;
+
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+
+    if (isSelected) {
+      bgColor = theme.colorScheme.primary;
+      borderColor = theme.colorScheme.primary;
+      textColor = Colors.white;
+    } else if (isAvailable) {
+      bgColor = Colors.transparent;
+      borderColor = theme.dividerTheme.color!;
+      textColor = theme.colorScheme.onSurface;
+    } else {
+      // Clearly dimmed — solid light gray so it reads as unavailable at a glance
+      bgColor = const Color(0xFFEAEAE6);
+      borderColor = const Color(0xFFDEDED8);
+      textColor = const Color(0xFFBBBBB0);
+    }
 
     return GestureDetector(
-      onTapDown: widget.onTap != null ? (_) => setState(() => _pressed = true) : null,
-      onTapUp: widget.onTap != null ? (_) => setState(() => _pressed = false) : null,
-      onTapCancel: widget.onTap != null ? () => setState(() => _pressed = false) : null,
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: borderColor,
-              width: widget.isSelected ? 2 : 1,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              widget.slot.startTime.substring(0, 5),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: textColor,
-              ),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: borderColor),
+        ),
+        child: Center(
+          child: Text(
+            slot.startTime.substring(0, 5),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: textColor,
+              decoration: !isAvailable ? TextDecoration.lineThrough : null,
+              decorationColor: textColor,
             ),
           ),
         ),
@@ -345,9 +460,14 @@ class _LegendDot extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 4),
-        Text(label,
-            style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodyMedium?.color)),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+          ),
+        ),
       ],
     );
   }

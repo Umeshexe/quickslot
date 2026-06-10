@@ -1,233 +1,196 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:quickslot/core/constants/api_constants.dart';
 import 'package:quickslot/core/router/app_router.dart';
 import 'package:quickslot/features/auth/providers/auth_provider.dart';
+
+// Each player profile — id, name, role, avatar emoji
+const _users = [
+  {'id': 'user-001', 'name': 'Arjun', 'role': 'Weekend Warrior', 'emoji': '🐯'},
+  {'id': 'user-002', 'name': 'Priya', 'role': 'Regular', 'emoji': '🦊'},
+  {'id': 'user-003', 'name': 'Rahul', 'role': 'Pro Player', 'emoji': '🦅'},
+];
 
 class UserSelectScreen extends ConsumerWidget {
   const UserSelectScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      body: Stack(
-        children: [
-          // ambient glow
-          Positioned(
-            top: -80,
-            left: -60,
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  const Color(0xFF00C896).withValues(alpha: 0.18),
-                  Colors.transparent,
-                ]),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 40,
-            right: -60,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  const Color(0xFF4F8EF7).withValues(alpha: 0.12),
-                  Colors.transparent,
-                ]),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Top brand section ─────────────────────────────────
+            Container(
+              width: double.infinity,
+              color: theme.scaffoldBackgroundColor,
+              padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 24),
-                  // logo
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF00C896), Color(0xFF00A67C)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF00C896).withValues(alpha: 0.35),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
+                  // Logo mark
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      ],
-                    ),
-                    child: const Icon(Icons.bolt_rounded, color: Colors.black, size: 30),
-                  ),
-                  const SizedBox(height: 28),
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [Color(0xFF00C896), Color(0xFF4F8EF7)],
-                    ).createShader(bounds),
-                    child: const Text(
-                      'QuickSlot',
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
+                        child: const Icon(Icons.sports_rounded, size: 18, color: Colors.white),
                       ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'QuickSlot',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    "Who's playing today?",
+                    style: theme.textTheme.headlineLarge?.copyWith(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.8,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Book sports slots instantly.\nWho are you playing as today?',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Color(0xFF8B95B0),
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 52),
-                  const Text(
-                    'CHOOSE ACCOUNT',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF8B95B0),
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  ...ApiConstants.users.asMap().entries.map(
-                    (e) => _UserCard(userId: e.value, index: e.key),
+                  Text(
+                    'Pick your profile to see what\'s available near you.',
+                    style: theme.textTheme.bodyMedium,
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+
+            // ── Thin divider ──────────────────────────────────────
+            Container(height: 1, color: theme.dividerTheme.color),
+
+            // ── Profile list ──────────────────────────────────────
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+                itemCount: _users.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final user = _users[index];
+                  return _ProfileTile(
+                    name: user['name']!,
+                    role: user['role']!,
+                    emoji: user['emoji']!,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      ref.read(authProvider.notifier).selectUser(user['id']!);
+                      context.go(Routes.venueList);
+                    },
+                  );
+                },
+              ),
+            ),
+
+            // ── Footer ────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+              child: Text(
+                'Demo mode — tap a profile to enter.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _UserCard extends ConsumerStatefulWidget {
-  const _UserCard({required this.userId, required this.index});
-  final String userId;
-  final int index;
+class _ProfileTile extends StatelessWidget {
+  const _ProfileTile({
+    required this.name,
+    required this.role,
+    required this.emoji,
+    required this.onTap,
+  });
 
-  @override
-  ConsumerState<_UserCard> createState() => _UserCardState();
-}
-
-class _UserCardState extends ConsumerState<_UserCard> {
-  bool _pressed = false;
-
-  static const _avatarColors = [
-    [Color(0xFF00C896), Color(0xFF00A67C)],
-    [Color(0xFF4F8EF7), Color(0xFF2E6FE0)],
-    [Color(0xFFFF7043), Color(0xFFE64A19)],
-  ];
-
-  static const _initials = ['AK', 'PR', 'RS'];
-  static const _names = ['Arjun Kumar', 'Priya Rajan', 'Rahul Sharma'];
-  static const _roles = ['Weekend baller', 'Court regular', 'Casual player'];
+  final String name;
+  final String role;
+  final String emoji;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colors = _avatarColors[widget.index % _avatarColors.length];
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: () {
-        ref.read(authProvider.notifier).selectUser(widget.userId);
-        context.go(Routes.venueList);
-      },
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 100),
+    final theme = Theme.of(context);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E2230),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: const Color(0xFF2A2F3E),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.dividerTheme.color!),
           ),
           child: Row(
             children: [
+              // Sport emoji avatar with a clearly-defined background circle
               Container(
-                width: 48,
-                height: 48,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: colors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.2),
                   ),
-                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
-                  child: Text(
-                    _initials[widget.index % _initials.length],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                    ),
-                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 24)),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
+              // Name + role
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _names[widget.index % _names.length],
-                      style: const TextStyle(
-                        fontSize: 15,
+                      name,
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFFF0F4FF),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      _roles[widget.index % _roles.length],
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF8B95B0),
-                      ),
+                      role,
+                      style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
                     ),
                   ],
                 ),
               ),
+              // Arrow — uses accent color to suggest "tap me"
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: colors[0].withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
                 ),
-                child: Text(
-                  'Play →',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: colors[0],
-                  ),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 16,
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ],

@@ -1,10 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:quickslot/core/router/app_router.dart';
 import 'package:quickslot/features/auth/providers/auth_provider.dart';
 import 'package:quickslot/features/venues/domain/entities/venue_entity.dart';
 import 'package:quickslot/features/venues/presentation/providers/venue_provider.dart';
+
+// ----- Sport-specific Unsplash photos (stable direct photo IDs) -----
+// Format: images.unsplash.com/photo-{id} — no query hotlinking, works on Android
+//
+// Badminton courts — actual court photography
+const _badmintonImages = [
+  'https://images.unsplash.com/photo-1637666062717-1c6bcfa4a4df?w=640&q=75&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=640&q=75&auto=format&fit=crop',
+];
+// Turf / football pitches
+const _turfImages = [
+  'https://images.unsplash.com/photo-1431324155629-1a6ddc1dec79?w=640&q=75&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=640&q=75&auto=format&fit=crop',
+];
+
+String _imageFor(VenueEntity v) {
+  final list = v.sportType == 'turf' ? _turfImages : _badmintonImages;
+  // Distribute across venues of same type using the venue id
+  return list[v.id % list.length];
+}
 
 class VenueListScreen extends ConsumerWidget {
   const VenueListScreen({super.key});
@@ -13,29 +34,69 @@ class VenueListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final venuesAsync = ref.watch(venueListProvider);
     final userId = ref.watch(authProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
+      // Pinned app bar — never scrolls away
+      appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        surfaceTintColor: Colors.transparent,
+        title: const Text(
+          'QuickSlot',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            iconSize: 22,
+            tooltip: 'My Bookings',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              context.push(Routes.myBookings);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.exit_to_app_rounded),
+            iconSize: 22,
+            tooltip: 'Log out',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              ref.read(authProvider.notifier).logout();
+              context.go(Routes.userSelect);
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
-          // gradient header
-          SliverToBoxAdapter(child: _Header(userId: userId, ref: ref)),
-          // content
+          // Greeting section — scrolls away with content, that's fine
+          SliverToBoxAdapter(
+            child: _Greeting(userId: userId),
+          ),
+          // Venue list
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
             sliver: venuesAsync.when(
-              loading: () => const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
+              loading: () => SliverList.builder(
+                itemCount: 3,
+                itemBuilder: (context, index) => const _VenueCardSkeleton(),
               ),
               error: (e, _) => SliverFillRemaining(
-                child: _ErrorView(
-                  onRetry: () => ref.invalidate(venueListProvider),
-                ),
+                child: _ErrorView(onRetry: () => ref.invalidate(venueListProvider)),
               ),
               data: (venues) => venues.isEmpty
                   ? const SliverFillRemaining(child: _EmptyView())
                   : SliverList.separated(
                       itemCount: venues.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      separatorBuilder: (context, index) => const SizedBox(height: 20),
                       itemBuilder: (_, i) => _VenueCard(venue: venues[i]),
                     ),
             ),
@@ -44,13 +105,11 @@ class VenueListScreen extends ConsumerWidget {
       ),
     );
   }
-
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.userId, required this.ref});
+class _Greeting extends StatelessWidget {
+  const _Greeting({required this.userId});
   final String? userId;
-  final WidgetRef ref;
 
   String _firstName(String? id) {
     switch (id) {
@@ -63,272 +122,258 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF111520), Color(0xFF0D0F14)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  // logo mark
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF00C896), Color(0xFF00A67C)],
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.bolt_rounded, color: Colors.black, size: 18),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'QuickSlot',
-                    style: TextStyle(
-                      color: Color(0xFFF0F4FF),
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  // bookings icon
-                  _ActionButton(
-                    icon: Icons.bookmark_rounded,
-                    onTap: () => context.push(Routes.myBookings),
-                    tooltip: 'My Bookings',
-                  ),
-                  const SizedBox(width: 8),
-                  _ActionButton(
-                    icon: Icons.logout_rounded,
-                    onTap: () {
-                      ref.read(authProvider.notifier).logout();
-                      context.go(Routes.userSelect);
-                    },
-                    tooltip: 'Switch user',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              Text(
-                'Hey ${_firstName(userId)} 👋',
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFFF0F4FF),
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Pick a venue and book your slot',
-                style: TextStyle(fontSize: 14, color: Color(0xFF8B95B0)),
-              ),
-            ],
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Ready to play, ${_firstName(userId)}?',
+            style: theme.textTheme.headlineLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.5,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            'Book a sports venue near you — instantly.',
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.icon, required this.onTap, required this.tooltip});
-  final IconData icon;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E2230),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF2A2F3E)),
-          ),
-          child: Icon(icon, size: 18, color: const Color(0xFF8B95B0)),
-        ),
-      ),
-    );
-  }
-}
-
-class _VenueCard extends StatefulWidget {
+class _VenueCard extends StatelessWidget {
   const _VenueCard({required this.venue});
   final VenueEntity venue;
 
   @override
-  State<_VenueCard> createState() => _VenueCardState();
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final imageUrl = _imageFor(venue);
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        context.push('/venues/${venue.id}');
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.cardTheme.color,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: theme.dividerTheme.color!),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Photo
+            SizedBox(
+              height: 175,
+              width: double.infinity,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return _Shimmer();
+                },
+                errorBuilder: (context, error, stackTrace) =>
+                    _SportFallback(sportType: venue.sportType),
+              ),
+            ),
+            // Card body
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          venue.name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on_outlined, size: 13,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                venue.location,
+                                style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            venue.sportType.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: theme.colorScheme.primary.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '₹${venue.priceInr}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' /hr',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Book',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _VenueCardState extends State<_VenueCard> {
-  bool _pressed = false;
+class _Shimmer extends StatefulWidget {
+  @override
+  State<_Shimmer> createState() => _ShimmerState();
+}
 
-  static const _sportGradients = {
-    'badminton': [Color(0xFF00C896), Color(0xFF00A67C)],
-    'turf': [Color(0xFF4F8EF7), Color(0xFF2E6FE0)],
-  };
+class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.0, end: 1.0).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final gradColors = _sportGradients[widget.venue.sportType] ??
-        [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)];
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) => Container(
+        color: Color.lerp(const Color(0xFFEAEAE6), const Color(0xFFF5F5F1), _anim.value),
+      ),
+    );
+  }
+}
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: () => context.push('/venues/${widget.venue.id}'),
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E2230),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF2A2F3E)),
+class _SportFallback extends StatelessWidget {
+  const _SportFallback({required this.sportType});
+  final String sportType;
+
+  @override
+  Widget build(BuildContext context) {
+    // Richer sport-tinted backgrounds so fallback cards don't blend with white
+    final bg = sportType == 'turf'
+        ? const Color(0xFFCEE5C8)  // grass green
+        : const Color(0xFFBFD9E8); // court blue
+    final emoji = sportType == 'turf' ? '⚽' : '🏸';
+    return Container(
+      color: bg,
+      child: Center(child: Text(emoji, style: const TextStyle(fontSize: 52))),
+    );
+  }
+}
+
+class _VenueCardSkeleton extends StatelessWidget {
+  const _VenueCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.dividerTheme.color!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(height: 175, color: const Color(0xFFEEEEEB)),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(height: 15, width: 150, decoration: BoxDecoration(
+                    color: const Color(0xFFEEEEEB), borderRadius: BorderRadius.circular(4))),
+                const SizedBox(height: 8),
+                Container(height: 12, width: 100, decoration: BoxDecoration(
+                    color: const Color(0xFFEEEEEB), borderRadius: BorderRadius.circular(4))),
+              ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // sport banner
-              Container(
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: gradColors.map((c) => c.withValues(alpha: 0.25)).toList(),
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      right: 20,
-                      bottom: 8,
-                      child: Text(
-                        widget.venue.sportEmoji,
-                        style: const TextStyle(fontSize: 44),
-                      ),
-                    ),
-                    Positioned(
-                      left: 16,
-                      bottom: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: gradColors[0].withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: gradColors[0].withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Text(
-                          widget.venue.sportType.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: gradColors[0],
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // info section
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.venue.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFF0F4FF),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.location_on_rounded,
-                                size: 12,
-                                color: Color(0xFF8B95B0),
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                widget.venue.location,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF8B95B0),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: gradColors),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: gradColors[0].withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            '₹${widget.venue.priceInr}',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const Text(
-                            'per hr',
-                            style: TextStyle(fontSize: 9, color: Colors.black54, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -342,28 +387,18 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E2230),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF2A2F3E)),
-              ),
-              child: const Icon(Icons.wifi_off_rounded, size: 32, color: Color(0xFF8B95B0)),
-            ),
+            const Icon(Icons.cloud_off_outlined, size: 40, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text('Could not load venues',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFF0F4FF))),
-            const SizedBox(height: 8),
-            const Text('Check your connection and try again',
-                style: TextStyle(fontSize: 13, color: Color(0xFF8B95B0)), textAlign: TextAlign.center),
+            const Text('Could not connect', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const SizedBox(height: 6),
+            const Text('Check your network and try again.',
+                style: TextStyle(color: Colors.grey, fontSize: 13), textAlign: TextAlign.center),
             const SizedBox(height: 24),
-            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+            OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),
@@ -376,16 +411,6 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('🏟️', style: TextStyle(fontSize: 48)),
-          const SizedBox(height: 16),
-          const Text('No venues found',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFFF0F4FF))),
-        ],
-      ),
-    );
+    return const Center(child: Text('No venues listed yet.', style: TextStyle(color: Colors.grey)));
   }
 }
