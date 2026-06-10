@@ -1,7 +1,3 @@
-/**
- * Seed script — run once to populate the DB with 5 venues + slots
- * Usage: npx ts-node db/seed.ts  (or: node --require ts-node/register db/seed.ts)
- */
 import pool from '../lib/db';
 
 const VENUES = [
@@ -12,7 +8,6 @@ const VENUES = [
   { name: 'Ace Badminton Club', sport_type: 'badminton', location: 'Jayanagar, Bengaluru', price_inr: 450 },
 ];
 
-/** Generate ISO date strings for today + next N days */
 function getDates(days: number): string[] {
   const dates: string[] = [];
   for (let i = 0; i < days; i++) {
@@ -23,7 +18,7 @@ function getDates(days: number): string[] {
   return dates;
 }
 
-/** Generate hourly slots from 6:00 AM to 10:00 PM */
+// 6AM to 10PM hourly
 function generateTimeSlots(): { start: string; end: string }[] {
   const slots = [];
   for (let hour = 6; hour < 22; hour++) {
@@ -38,7 +33,7 @@ function generateTimeSlots(): { start: string; end: string }[] {
 async function seed() {
   const client = await pool.connect();
   try {
-    console.log('Seeding venues...');
+    console.log('seeding venues...');
     const venueIds: number[] = [];
 
     for (const v of VENUES) {
@@ -51,12 +46,10 @@ async function seed() {
       );
       if (res.rows[0]) venueIds.push(res.rows[0].id);
     }
-    console.log(`Inserted ${venueIds.length} venues`);
 
-    console.log('Seeding slots...');
-    const dates = getDates(7);  // today + 6 more days
+    console.log('seeding slots...');
+    const dates = getDates(7);
     const timeSlots = generateTimeSlots();
-    let slotCount = 0;
 
     for (const venueId of venueIds) {
       for (const date of dates) {
@@ -67,13 +60,11 @@ async function seed() {
              ON CONFLICT (venue_id, date, start_time) DO NOTHING`,
             [venueId, date, ts.start, ts.end]
           );
-          slotCount++;
         }
       }
     }
 
-    console.log(`Inserted ${slotCount} slots across ${venueIds.length} venues × ${dates.length} days × ${timeSlots.length} time slots`);
-    console.log('Seed complete ✓');
+    console.log('done');
   } finally {
     client.release();
     await pool.end();
@@ -81,6 +72,6 @@ async function seed() {
 }
 
 seed().catch((err) => {
-  console.error('Seed failed:', err);
+  console.error(err);
   process.exit(1);
 });

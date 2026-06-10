@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
-// GET /api/venues/[id]/slots?date=YYYY-MM-DD
-// Returns all hourly slots for a venue on a given date, with their booking status
+// GET /api/venues/:id/slots?date=YYYY-MM-DD
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,10 +12,7 @@ export async function GET(
   const date = searchParams.get('date');
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return NextResponse.json(
-      { error: 'Missing or invalid date. Use ?date=YYYY-MM-DD' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Use ?date=YYYY-MM-DD' }, { status: 400 });
   }
 
   if (isNaN(venueId)) {
@@ -24,7 +20,6 @@ export async function GET(
   }
 
   try {
-    // Check venue exists
     const venueCheck = await pool.query('SELECT id FROM venues WHERE id = $1', [venueId]);
     if (venueCheck.rows.length === 0) {
       return NextResponse.json({ error: 'Venue not found' }, { status: 404 });
@@ -32,12 +27,7 @@ export async function GET(
 
     const { rows } = await pool.query(
       `SELECT
-         s.id,
-         s.venue_id,
-         s.date,
-         s.start_time,
-         s.end_time,
-         s.status,
+         s.id, s.venue_id, s.date, s.start_time, s.end_time, s.status,
          b.user_id AS booked_by
        FROM slots s
        LEFT JOIN bookings b ON b.slot_id = s.id
