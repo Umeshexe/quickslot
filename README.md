@@ -2,6 +2,10 @@
 
 Book sports slots — badminton courts, turf grounds. No double bookings.
 
+Demo video and screenshots: https://drive.google.com/drive/folders/1JDltpYIfNBokud7tL1O8hW6pBc8blh3t?usp=sharing
+
+Tested on OnePlus 8 Pro running Android 13.
+
 ---
 
 ## Deployed stack
