@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:quickslot/core/error/result.dart';
+import 'package:quickslot/core/router/app_router.dart';
 import 'package:quickslot/features/auth/providers/auth_provider.dart';
 import 'package:quickslot/features/bookings/data/repositories/booking_repository.dart';
 import 'package:quickslot/features/bookings/domain/entities/booking_entity.dart';
@@ -15,47 +17,60 @@ class MyBookingsScreen extends ConsumerWidget {
     final bookingsAsync = ref.watch(userBookingsProvider(userId));
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Bookings')),
-      body: bookingsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline_rounded, size: 40, color: Colors.grey),
-              const SizedBox(height: 12),
-              Text('Could not load bookings', style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(userBookingsProvider(userId)),
-                child: const Text('Retry'),
-              ),
-            ],
+    return PopScope(
+      canPop: false,
+      // Android back → go to venues, not close the app
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go(Routes.venueList);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('My Bookings'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => context.go(Routes.venueList),
           ),
         ),
-        data: (bookings) => bookings.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.bookmark_border_rounded, size: 48, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    Text('No bookings yet', style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    Text('Go book a slot!', style: theme.textTheme.bodyMedium),
-                  ],
+        body: bookingsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline_rounded, size: 40, color: Colors.grey),
+                const SizedBox(height: 12),
+                Text('Could not load bookings', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(userBookingsProvider(userId)),
+                  child: const Text('Retry'),
                 ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.all(20),
-                itemCount: bookings.length,
-                separatorBuilder: (context, _) => const SizedBox(height: 12),
-                itemBuilder: (context, i) => _BookingCard(
-                  booking: bookings[i],
-                  onCancel: () => _cancelBooking(context, ref, userId, bookings[i]),
+              ],
+            ),
+          ),
+          data: (bookings) => bookings.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.bookmark_border_rounded, size: 48, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text('No bookings yet', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      Text('Go book a slot!', style: theme.textTheme.bodyMedium),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: bookings.length,
+                  separatorBuilder: (context, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) => _BookingCard(
+                    booking: bookings[i],
+                    onCancel: () => _cancelBooking(context, ref, userId, bookings[i]),
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }
